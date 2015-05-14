@@ -1,0 +1,6 @@
+source_class[grepl("combustion", 
+                              source_class$SCC.Level.One, 
+                              ignore.case=TRUE) & 
+                            (grepl("coal", 
+                                   source_class$SCC.Level.Three, 
+                                   ignore.case=TRUE) | 
