@@ -1,5 +1,8 @@
 library(curl)
 require(ggplot2)
+library(grid)
+library(gridExtra)
+
 download_data<-function(){
   # download and unzip the dataset
   if(file.exists('data/NEI_data.zip') ==FALSE){
@@ -23,10 +26,10 @@ load_data<-function(plotNum){
     theData<-merge(NEI,SCC,by="SCC")
     saveRDS(theData,'data/mergedNEISCC.rds')
   }
-  SCC <- readRDS("data/temp/Source_Classification_Code.rds")
+  #SCC <- readRDS("data/temp/Source_Classification_Code.rds")
   #print(names(SCC))
-  View(unique(SCC$SCC.Level.Four))
-  stop()
+  #View(unique(SCC$SCC.Level.Four))
+  #stop()
   
   if(plotNum ==1){
     datax<-theData[,c("year","Emissions")]
@@ -42,14 +45,26 @@ load_data<-function(plotNum){
     datax<-theData[theData$fips == "24510",c("year","Emissions","type")]
     datax[,2]<-as.numeric(datax[,2])
     theData<-datax
+    print(head(theData))
   }
   if(plotNum ==4){
-    datax<-theData[c("year","Emissions","type")]
+    datax<-theData[(grepl("combustion",theData$SCC.Level.One,ignore.case=TRUE) & 
+                      grepl("coal",theData$SCC.Level.Three,ignore.case=TRUE)),c("year","Emissions")]
     datax[,2]<-as.numeric(datax[,2])
+    #print(head(datax,10))
     theData<-datax
   }
+  
+  if(plotNum ==5){
+    datax<-theData[theData$type == "OnRoad",c("year","Emissions","type")]
+    datax[,2]<-as.numeric(datax[,2])
+    theData<-datax
+    print(head(theData))
+  }
+  
+  
   print("done with loading data")
-  theData
+  #theData
 }
 
 
@@ -90,7 +105,7 @@ plot2<-function(){
   dev.off()
 }
 
-plot3<-function(){
+plot31<-function(){
   # Of the four types of sources indicated by the type (point, nonpoint, onroad, nonroad) variable, 
   # which of these four sources have seen decreases in emissions from 1999-2008 for Baltimore City? 
   # Which have seen increases in emissions from 1999-2008? Use the ggplot2 plotting system to make a 
@@ -101,6 +116,7 @@ plot3<-function(){
   #source("getData.R")
   #Load the data and for Plot #1
   datax<-load_data(3)
+  
   #Tell it not to use scientifice numerics
   options(scipen=999)
   #View(datax)
@@ -113,39 +129,135 @@ plot3<-function(){
   #print(sumByYear)
   #Create the plot
   #png(filename = "plot3.png", width = 480, height = 480, units = "px", bg = "transparent")
-  g<-ggplot(datax,aes(Year, Emissions))
-  g+geom_point(color="firebrick")+facet_wrap(~type,scales = "free_y")+stat_smooth(method = "lm", se = FALSE)+ggtitle("Baltimore City,Maryland\nAl Pivonka")
+  gAllData<-ggplot(datax,aes(Year, Emissions))+ylab("Emissions")+geom_point(color="firebrick")+facet_wrap(~type,scales = "free_y")+stat_smooth(method = "lm", se = FALSE)+ggtitle("PM25")
   #g+geom_point(color="firebrick")+geom_boxplot()+facet_wrap(~type,scales = "free")+geom_quantile()+ggtitle("Baltimore City,Maryland\nAl Pivonka")+geom_violin(alpha=0.5, color="green")
   
-  ggsave(file="plot3.png")#,width = 5,height=3)
+  #ggsave(file="plot3.png")#,width = 5,height=3)
   #dev.off()
- 
+  gAllData
   
 }
-plot3_2<-function(){
+plot32<-function(){
+  # Of the four types of sources indicated by the type (point, nonpoint, onroad, nonroad) variable, 
+  # which of these four sources have seen decreases in emissions from 1999-2008 for Baltimore City? 
+  # Which have seen increases in emissions from 1999-2008? Use the ggplot2 plotting system to make a 
+  # plot answer this question.
+  # type: The type of source (point, non-point, on-road, or non-road)
   
   #Source the data setup file
   #source("getData.R")
   #Load the data and for Plot #1
-  datax<-load_data(32)
+  datax<-load_data(3)
+  #Tell it not to use scientifice numerics
+  options(scipen=999)
+  #print(head(datax))
+  #Get only the data we want and summed
+  datax<-aggregate(datax,by=list(datax$year,datax$type),FUN=mean)
+  #Give it good column names
+  #print(datax)
+  #stop()
+  colnames(datax)<-c("Year","Type","year2","Emissions","type2")
+  #print(sumByYear)
+  #Create the plot
+  #png(filename = "plot3.png", width = 480, height = 480, units = "px", bg = "transparent")
+  gMeanData<-ggplot(datax,aes(Year, Emissions))+ylab("Emissions")+geom_point(color="firebrick")+geom_line()+facet_wrap(~Type,scales = "free_y")+ggtitle("Mean of PM25")
+  
+  #g+geom_point(color="firebrick")+geom_boxplot()+facet_wrap(~type,scales = "free")+geom_quantile()+ggtitle("Baltimore City,Maryland\nAl Pivonka")+geom_violin(alpha=0.5, color="green")
+  
+  #ggsave(file="plot3_2.png")#,width = 5,height=3)
+  #dev.off()
+  gMeanData
+  
+}
+plot3<-function(){
+  p1<-plot31()
+  p2<-plot32()
+  #grid.arrange(p1,p2, ncol=2,main = "Baltimore City,Maryland\nAl Pivonka\nPlease notice the difference in the scales.")
+  xx<-arrangeGrob(p1,p2, ncol=2,main = "Baltimore City,Maryland\nAl Pivonka\nPlease notice the difference in the scales.")
+  ggsave(file="plot3.png",xx,width = 10,height=5)#,width = 5,height=3)
+}
+
+
+plot4<-function(){
+  # Of the four types of sources indicated by the type (point, nonpoint, onroad, nonroad) variable, 
+  # which of these four sources have seen decreases in emissions from 1999-2008 for Baltimore City? 
+  # Which have seen increases in emissions from 1999-2008? Use the ggplot2 plotting system to make a 
+  # plot answer this question.
+  # type: The type of source (point, non-point, on-road, or non-road)
+  
+  #Source the data setup file
+  #source("getData.R")
+  #Load the data and for Plot #1
+  datax<-load_data(4)
+  
   #Tell it not to use scientifice numerics
   options(scipen=999)
   #View(datax)
-  print(as.factor(unique(datax$type)))
+  #print(as.factor(unique(datax$Type)))
   #Get only the data we want and summed
   #sumByYear<-aggregate(datax$Emissions,by=list(datax$year),FUN=sum)
+  dataxMean<-aggregate(datax,by=list(datax$year),FUN=mean)
   #Give it good column names
-  #print(datax)
-  colnames(datax)<-c("Year","Emissions","type")
+  #print(head(datax))
+  #stop()
+  #colnames(datax)<-c("Year","Emissions")
   #print(sumByYear)
   #Create the plot
-  #png(filename = "plot3_1.png", width = 480, height = 480, units = "px", bg = "transparent")
-  g<-ggplot(datax,aes(Year, Emissions))+ggtitle("USA\nAl Pivonka") 
-  g+geom_point(color="firebrick")+facet_wrap(~type,scales = "free")+stat_smooth(method = "lm", se = FALSE,formula=y~x,fullrange=TRUE)+geom_violin(alpha=0.5, color="green")
+  #png(filename = "plot3.png", width = 480, height = 480, units = "px", bg = "transparent")
+  gAllData<-ggplot(datax,aes(year, Emissions))+ylab("PM2.5 Emissions")+geom_point(color="firebrick")+ggtitle("PM2.5 Emissions")+stat_smooth(method = "lm", se = FALSE,colour="darkblue")
   
-  ggsave(file="plot3_2.png")#,width = 5,height=3)
+  
+  gMeanData<-ggplot(dataxMean,aes(year, Emissions))+ylab("PM2.5 Emissions")+geom_line(color="blue")+geom_point()+ggtitle("Mean of PM2.5 Emissions")#+stat_smooth(method = "lm", se = FALSE)
+  #gMeanData
+  
+  #gAllData<-ggplot(datax,aes(Year, Emissions))+ylab("Emissions")+geom_point(color="firebrick")+facet_wrap(~type,scales = "free_y")+stat_smooth(method = "lm", se = FALSE)+ggtitle("PM25")
+  #g+geom_point(color="firebrick")+geom_boxplot()+facet_wrap(~type,scales = "free")+geom_quantile()+ggtitle("Baltimore City,Maryland\nAl Pivonka")+geom_violin(alpha=0.5, color="green")
+  xx<-arrangeGrob(gAllData,gMeanData, ncol=2,main = "Coal Combustion-related Sources \nAl Pivonka\nPlease notice the difference in the scales.")
+  ggsave(file="plot3.png",xx,width = 10,height=5)
+  
   #dev.off()
-  
+  #gAllData
   
 }
+
+plot5<-function(){
+  # Of the four types of sources indicated by the type (point, nonpoint, onroad, nonroad) variable, 
+  # which of these four sources have seen decreases in emissions from 1999-2008 for Baltimore City? 
+  # Which have seen increases in emissions from 1999-2008? Use the ggplot2 plotting system to make a 
+  # plot answer this question.
+  # type: The type of source (point, non-point, on-road, or non-road)
   
+  #Source the data setup file
+  #source("getData.R")
+  #Load the data and for Plot #1
+  datax<-load_data(4)
+  
+  #Tell it not to use scientifice numerics
+  options(scipen=999)
+  #View(datax)
+  #print(as.factor(unique(datax$Type)))
+  #Get only the data we want and summed
+  #sumByYear<-aggregate(datax$Emissions,by=list(datax$year),FUN=sum)
+  dataxMean<-aggregate(datax,by=list(datax$year),FUN=mean)
+  #Give it good column names
+  #print(head(datax))
+  #stop()
+  #colnames(datax)<-c("Year","Emissions")
+  #print(sumByYear)
+  #Create the plot
+  #png(filename = "plot3.png", width = 480, height = 480, units = "px", bg = "transparent")
+  gAllData<-ggplot(datax,aes(year, Emissions))+ylab("PM2.5 Emissions")+geom_point(color="firebrick")+ggtitle("PM2.5 Emissions")+stat_smooth(method = "lm", se = FALSE,colour="darkblue")
+  
+  
+  gMeanData<-ggplot(dataxMean,aes(year, Emissions))+ylab("PM2.5 Emissions")+geom_line(color="blue")+geom_point()+ggtitle("Mean of PM2.5 Emissions")#+stat_smooth(method = "lm", se = FALSE)
+  #gMeanData
+  
+  #gAllData<-ggplot(datax,aes(Year, Emissions))+ylab("Emissions")+geom_point(color="firebrick")+facet_wrap(~type,scales = "free_y")+stat_smooth(method = "lm", se = FALSE)+ggtitle("PM25")
+  #g+geom_point(color="firebrick")+geom_boxplot()+facet_wrap(~type,scales = "free")+geom_quantile()+ggtitle("Baltimore City,Maryland\nAl Pivonka")+geom_violin(alpha=0.5, color="green")
+  xx<-arrangeGrob(gAllData,gMeanData, ncol=2,main = "Coal Combustion-related Sources \nAl Pivonka\nPlease notice the difference in the scales.")
+  ggsave(file="plot3.png",xx,width = 10,height=5)
+  
+  #dev.off()
+  #gAllData
+  
+}
